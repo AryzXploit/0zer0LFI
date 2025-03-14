@@ -1,0 +1,138 @@
+#!/usr/bin/python3
+# 0zer0LFI - User Authentication
+# Author: AryzXploit
+
+import os
+import json
+import pyfiglet
+import time
+import random
+import string
+from datetime import datetime, timedelta
+from termcolor import colored
+import getpass
+
+secret_path = os.path.expanduser('~/.0zer0LFI/')
+session_file = os.path.join(secret_path, 'session.json')
+auth_status_file = os.path.join(secret_path, 'auth_status.json')
+
+def setup_secret_path():
+    """Buat folder jika belum ada"""
+    if not os.path.exists(secret_path):
+        os.makedirs(secret_path)
+
+def save_session(username, password):
+    session_data = {"username": username, "password": password}
+    with open(session_file, 'w') as file:
+        json.dump(session_data, file, indent=4)
+
+def load_session():
+    """Ambil data user"""
+    if not os.path.exists(session_file):
+        return None
+    with open(session_file, 'r') as file:
+        return json.load(file)
+
+def generate_token(length=32):
+    """Buat token acak"""
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+
+def save_token(token):
+    token_data = {
+        "token": token,
+        "created_at": datetime.now().isoformat(),
+        "authenticated": True
+    }
+    with open(auth_status_file, 'w') as file:
+        json.dump(token_data, file, indent=4)
+
+def load_token():
+    if not os.path.exists(auth_status_file):
+        return None
+    try:
+        with open(auth_status_file, 'r') as file:
+            return json.load(file)
+    except json.JSONDecodeError:
+        return None
+
+def is_token_expired():
+    """Cek apakah token expired (>24 jam)"""
+    token_data = load_token()
+    if not token_data:
+        return True
+    created_at = datetime.fromisoformat(token_data["created_at"])
+    return datetime.now() > created_at + timedelta(hours=24)
+
+def register():
+    """Buat akun baru"""
+    if os.path.exists(session_file):
+        print(colored("❌ User already registered! Please login.", 'red'))
+        return False
+
+    os.system('clear')
+    print(colored(pyfiglet.figlet_format('Register', font='slant'), 'cyan'))
+    
+    username = input("Username: ")
+    password = getpass.getpass("Password: ")
+
+    save_session(username, password)
+    print(colored("✅ Registration successful! Please login.", 'green'))
+    time.sleep(2)
+    return True
+
+def login():
+    """Login dan generate token"""
+    session_data = load_session()
+    if not session_data:
+        print(colored("❌ No user registered. Please register first.", 'red'))
+        return False
+
+    print(colored(pyfiglet.figlet_format('Login', font='slant'), 'magenta'))
+    
+    username = input("Username: ")
+    password = getpass.getpass("Password: ")
+
+    if session_data['username'] == username and session_data['password'] == password:
+        print(colored("✅ Login successful!", 'green'))
+        
+        if is_token_expired():
+            token = generate_token()
+            save_token(token)
+            print(colored(f"🆕 New token generated: {token}", 'cyan'))
+        else:
+            token = load_token()["token"]
+            print(colored(f"🔑 Your current token: {token}", 'cyan'))
+
+        time.sleep(2)
+        return True
+    else:
+        print(colored("❌ Invalid credentials.", 'red'))
+        return False
+
+def main():
+    setup_secret_path()
+    while True:
+        os.system('clear')
+        print(colored(pyfiglet.figlet_format('0zer0LFI Auth', font='slant'), 'cyan'))
+        print(colored("🆕 1. Register", 'yellow'))
+        print(colored("🔑 2. Login", 'yellow'))
+        print(colored("❌ 0. Exit", 'yellow'))
+
+        choice = input(colored("🤖 Pilih opsi: ", 'yellow'))
+
+        if choice == '1':
+            register()
+        elif choice == '2':
+            if login():
+                break
+        elif choice == '0':
+            print(colored("👋 Goodbye!", 'cyan'))
+            time.sleep(1)
+            os.system('clear')
+            break
+        else:
+            print(colored("❌ Invalid option. Try again.", 'red'))
+            time.sleep(2)
+
+if __name__ == "__main__":
+    main()
